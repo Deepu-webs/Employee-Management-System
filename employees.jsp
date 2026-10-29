@@ -10,14 +10,20 @@
     String userName = (String) session.getAttribute("userName");
     String error = (String) request.getAttribute("error");
     String searchMessage = (String) request.getAttribute("searchMessage");
+    String sortMessage = (String) request.getAttribute("sortMessage");
     String algorithmName = (String) request.getAttribute("algorithmName");
     String ctx = request.getContextPath();
 
     String searchId = request.getParameter("searchId");
     String selectedAlgorithm = request.getParameter("algorithm");
+    String selectedOrder = request.getParameter("order");
 
     if (selectedAlgorithm == null) {
         selectedAlgorithm = "linear";
+    }
+
+    if (selectedOrder == null) {
+        selectedOrder = "asc";
     }
 %>
 
@@ -29,7 +35,9 @@
 <title>Employee Management</title>
 
 <style>
-* { box-sizing: border-box; }
+* {
+    box-sizing: border-box;
+}
 
 body {
     margin: 0;
@@ -49,7 +57,9 @@ body {
     gap: 15px;
 }
 
-.header h2 { margin: 0; }
+.header h2 {
+    margin: 0;
+}
 
 .header a {
     color: white;
@@ -77,9 +87,13 @@ body {
     margin-bottom: 20px;
 }
 
-.toolbar h2 { margin: 0 0 6px; }
+.toolbar h2 {
+    margin: 0 0 6px;
+}
 
-.muted { color: #64748b; }
+.muted {
+    color: #64748b;
+}
 
 .add {
     background: #2563eb;
@@ -140,8 +154,17 @@ body {
     cursor: pointer;
 }
 
-.search-btn { background: #2563eb; }
-.show-all { background: #475569; }
+.search-btn {
+    background: #2563eb;
+}
+
+.show-all {
+    background: #475569;
+}
+
+.sort-btn {
+    background: #7c3aed;
+}
 
 .table-card {
     background: white;
@@ -168,10 +191,17 @@ th {
     font-size: 13px;
 }
 
-tbody tr:hover { background: #f8fafc; }
+tbody tr:hover {
+    background: #f8fafc;
+}
 
-.edit { background: #16a34a; }
-.delete { background: #dc2626; }
+.edit {
+    background: #16a34a;
+}
+
+.delete {
+    background: #dc2626;
+}
 
 .actions {
     display: flex;
@@ -179,7 +209,9 @@ tbody tr:hover { background: #f8fafc; }
     gap: 8px;
 }
 
-.actions form { margin: 0; }
+.actions form {
+    margin: 0;
+}
 
 .alert {
     padding: 12px;
@@ -204,12 +236,22 @@ tbody tr:hover { background: #f8fafc; }
 }
 
 @media (max-width: 600px) {
-    .container { padding: 0 12px; }
-    .search-form { flex-direction: column; align-items: stretch; }
+    .container {
+        padding: 0 12px;
+    }
+
+    .search-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
     .search-form input,
     .search-form select,
     .search-form button,
-    .search-form a { width: 100%; text-align: center; }
+    .search-form a {
+        width: 100%;
+        text-align: center;
+    }
 }
 </style>
 </head>
@@ -240,7 +282,7 @@ tbody tr:hover { background: #f8fafc; }
         </a>
     </div>
 
-    <!-- Employee Search: DAA Module -->
+    <!-- DAA: Employee Search -->
     <div class="search-card">
         <h3>Employee Search - DAA Algorithms</h3>
 
@@ -279,6 +321,46 @@ tbody tr:hover { background: #f8fafc; }
         </form>
     </div>
 
+    <!-- NEW DAA: Employee Salary Sorting -->
+    <div class="search-card">
+        <h3>Employee Salary Sorting - DAA Algorithms</h3>
+
+        <form class="search-form"
+              action="<%= ctx %>/employees"
+              method="get">
+
+            <input type="hidden" name="action" value="sort">
+
+            <select name="algorithm">
+                <option value="merge"
+                    <%= "merge".equals(selectedAlgorithm) ? "selected" : "" %>>
+                    Merge Sort
+                </option>
+
+                <option value="quick"
+                    <%= "quick".equals(selectedAlgorithm) ? "selected" : "" %>>
+                    Quick Sort
+                </option>
+            </select>
+
+            <select name="order">
+                <option value="asc"
+                    <%= "asc".equals(selectedOrder) ? "selected" : "" %>>
+                    Salary: Low to High
+                </option>
+
+                <option value="desc"
+                    <%= "desc".equals(selectedOrder) ? "selected" : "" %>>
+                    Salary: High to Low
+                </option>
+            </select>
+
+            <button class="btn sort-btn" type="submit">
+                Sort Employees
+            </button>
+        </form>
+    </div>
+
     <% if (error != null) { %>
         <div class="alert"><%= error %></div>
     <% } %>
@@ -286,6 +368,16 @@ tbody tr:hover { background: #f8fafc; }
     <% if (searchMessage != null) { %>
         <div class="success">
             <%= searchMessage %>
+
+            <% if (algorithmName != null) { %>
+                | Algorithm: <%= algorithmName %>
+            <% } %>
+        </div>
+    <% } %>
+
+    <% if (sortMessage != null) { %>
+        <div class="success">
+            <%= sortMessage %>
 
             <% if (algorithmName != null) { %>
                 | Algorithm: <%= algorithmName %>
