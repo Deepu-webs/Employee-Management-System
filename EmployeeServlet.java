@@ -4,6 +4,7 @@ package com.jdbcapp.servlet;
 import com.jdbcapp.model.Employee;
 import com.jdbcapp.util.DBConnection;
 import com.jdbcapp.algorithm.SearchAlgorithms;
+import com.jdbcapp.util.SortAlgorithms;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -33,7 +34,6 @@ public class EmployeeServlet extends HttpServlet {
         return true;
     }
 
-    // GET requests: list, add form, edit form, search
     @Override
     protected void doGet(HttpServletRequest request,
                          HttpServletResponse response)
@@ -55,18 +55,20 @@ public class EmployeeServlet extends HttpServlet {
         } else if ("search".equals(action)) {
             searchEmployees(request, response);
 
+        } else if ("sort".equals(action)) {
+            sortEmployees(request, response);
+
         } else {
             listEmployees(request, response);
         }
     }
 
-    // SEARCH EMPLOYEE USING LINEAR OR BINARY SEARCH
+    // SEARCH USING LINEAR OR BINARY SEARCH
     private void searchEmployees(HttpServletRequest request,
-                                 HttpServletResponse response)
+                                HttpServletResponse response)
             throws ServletException, IOException {
 
         List<Employee> employees = new ArrayList<>();
-
         String searchId = request.getParameter("searchId");
 
         try {
@@ -76,7 +78,6 @@ public class EmployeeServlet extends HttpServlet {
 
             int target = Integer.parseInt(searchId);
 
-            // Fetch employee records in ascending ID order.
             String sql = "SELECT * FROM employees ORDER BY employee_id";
 
             try (Connection con = DBConnection.getConnection();
@@ -97,7 +98,6 @@ public class EmployeeServlet extends HttpServlet {
                 }
             }
 
-            // Store employee IDs in an array.
             int[] ids = new int[employees.size()];
 
             for (int i = 0; i < employees.size(); i++) {
@@ -115,38 +115,85 @@ public class EmployeeServlet extends HttpServlet {
                 request.setAttribute("algorithmName", "Linear Search");
             }
 
-            // Display only the matching employee.
             if (index >= 0) {
                 Employee found = employees.get(index);
-
                 employees.clear();
                 employees.add(found);
 
-                request.setAttribute(
-                    "searchMessage", "Employee found successfully."
-                );
+                request.setAttribute("searchMessage",
+                        "Employee found successfully.");
             } else {
                 employees.clear();
 
-                request.setAttribute(
-                    "searchMessage",
-                    "No employee found with ID " + target + "."
-                );
+                request.setAttribute("searchMessage",
+                        "No employee found with ID " + target + ".");
             }
 
         } catch (NumberFormatException e) {
             employees.clear();
-            request.setAttribute(
-                "error", "Please enter a valid positive Employee ID."
-            );
+            request.setAttribute("error",
+                    "Please enter a valid positive Employee ID.");
 
         } catch (SQLException e) {
             log("Employee search failed", e);
             employees.clear();
+            request.setAttribute("error",
+                    "Unable to search employees. Please try again.");
+        }
 
-            request.setAttribute(
-                "error", "Unable to search employees. Please try again."
-            );
+        request.setAttribute("employees", employees);
+        request.getRequestDispatcher("/employees.jsp")
+               .forward(request, response);
+    }
+
+    // SORT EMPLOYEES USING MERGE SORT OR QUICK SORT
+    private void sortEmployees(HttpServletRequest request,
+                               HttpServletResponse response)
+            throws ServletException, IOException {
+
+        List<Employee> employees = new ArrayList<>();
+
+        String algorithm = request.getParameter("algorithm");
+        String order = request.getParameter("order");
+
+        String sql = "SELECT * FROM employees";
+
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                Employee e = new Employee();
+
+                e.setEmployeeId(rs.getInt("employee_id"));
+                e.setName(rs.getString("name"));
+                e.setSalary(rs.getDouble("salary"));
+                e.setDepartment(rs.getString("department"));
+                e.setCity(rs.getString("city"));
+                e.setMobile(rs.getString("mobile"));
+
+                employees.add(e);
+            }
+
+            if ("quick".equals(algorithm)) {
+                employees = SortAlgorithms.quickSortBySalary(employees);
+                request.setAttribute("algorithmName", "Quick Sort");
+            } else {
+                employees = SortAlgorithms.mergeSortBySalary(employees);
+                request.setAttribute("algorithmName", "Merge Sort");
+            }
+
+            if ("desc".equals(order)) {
+                employees = SortAlgorithms.descending(employees);
+            }
+
+            request.setAttribute("sortMessage",
+                    "Employees sorted successfully.");
+
+        } catch (SQLException e) {
+            log("Employee sorting failed", e);
+            request.setAttribute("error",
+                    "Unable to sort employee records.");
         }
 
         request.setAttribute("employees", employees);
@@ -155,7 +202,7 @@ public class EmployeeServlet extends HttpServlet {
                .forward(request, response);
     }
 
-    // POST requests: save or delete
+    // SAVE OR DELETE
     @Override
     protected void doPost(HttpServletRequest request,
                           HttpServletResponse response)
@@ -180,7 +227,7 @@ public class EmployeeServlet extends HttpServlet {
         }
     }
 
-    // EDIT: fetch one employee for the edit form
+    // EDIT EMPLOYEE
     private void editEmployee(HttpServletRequest request,
                               HttpServletResponse response)
             throws ServletException, IOException {
@@ -192,8 +239,7 @@ public class EmployeeServlet extends HttpServlet {
                 throw new NumberFormatException();
             }
 
-            String sql =
-                "SELECT * FROM employees WHERE employee_id = ?";
+            String sql = "SELECT * FROM employees WHERE employee_id = ?";
 
             try (Connection con = DBConnection.getConnection();
                  PreparedStatement ps = con.prepareStatement(sql)) {
@@ -212,11 +258,9 @@ public class EmployeeServlet extends HttpServlet {
                         e.setMobile(rs.getString("mobile"));
 
                         request.setAttribute("employee", e);
-
                     } else {
-                        request.setAttribute(
-                            "error", "Employee record not found."
-                        );
+                        request.setAttribute("error",
+                                "Employee record not found.");
                     }
                 }
             }
@@ -226,9 +270,8 @@ public class EmployeeServlet extends HttpServlet {
 
         } catch (SQLException e) {
             log("Unable to retrieve employee", e);
-            request.setAttribute(
-                "error", "Unable to retrieve employee."
-            );
+            request.setAttribute("error",
+                    "Unable to retrieve employee.");
         }
 
         request.getRequestDispatcher("/employee-form.jsp")
@@ -237,7 +280,7 @@ public class EmployeeServlet extends HttpServlet {
 
     // DISPLAY ALL EMPLOYEES
     private void listEmployees(HttpServletRequest request,
-                               HttpServletResponse response)
+                              HttpServletResponse response)
             throws ServletException, IOException {
 
         List<Employee> employees = new ArrayList<>();
@@ -265,10 +308,8 @@ public class EmployeeServlet extends HttpServlet {
 
         } catch (SQLException e) {
             log("Unable to retrieve employee records", e);
-
-            request.setAttribute(
-                "error", "Unable to retrieve employee records."
-            );
+            request.setAttribute("error",
+                    "Unable to retrieve employee records.");
         }
 
         request.getRequestDispatcher("/employees.jsp")
@@ -294,9 +335,7 @@ public class EmployeeServlet extends HttpServlet {
 
         try {
             if (update) {
-                id = Integer.parseInt(
-                    request.getParameter("employeeId")
-                );
+                id = Integer.parseInt(request.getParameter("employeeId"));
 
                 if (id <= 0) {
                     throw new NumberFormatException();
@@ -306,9 +345,8 @@ public class EmployeeServlet extends HttpServlet {
             salary = Double.parseDouble(salaryText);
 
         } catch (NumberFormatException | NullPointerException e) {
-            request.setAttribute(
-                "error", "Enter a valid employee ID and salary."
-            );
+            request.setAttribute("error",
+                    "Enter a valid employee ID and salary.");
 
             request.getRequestDispatcher("/employee-form.jsp")
                    .forward(request, response);
@@ -318,17 +356,14 @@ public class EmployeeServlet extends HttpServlet {
         if (name == null || name.isBlank() || name.length() > 100
                 || !Double.isFinite(salary) || salary <= 0
                 || department == null
-                || !department.trim().matches(
-                    "[A-Za-z][A-Za-z &-]{0,99}"
-                )
+                || !department.trim().matches("[A-Za-z][A-Za-z &-]{0,99}")
                 || city == null
                 || !city.trim().matches("[A-Za-z][A-Za-z ]{1,49}")
                 || mobile == null
                 || !mobile.matches("\\d{10}")) {
 
-            request.setAttribute(
-                "error", "Please enter valid employee details."
-            );
+            request.setAttribute("error",
+                    "Please enter valid employee details.");
 
             request.getRequestDispatcher("/employee-form.jsp")
                    .forward(request, response);
@@ -341,7 +376,7 @@ public class EmployeeServlet extends HttpServlet {
             sql = "UPDATE employees SET name=?, salary=?, department=?, "
                 + "city=?, mobile=? WHERE employee_id=?";
         } else {
-            sql = "INSERT INTO employees"
+            sql = "INSERT INTO employees "
                 + "(name, salary, department, city, mobile) "
                 + "VALUES(?,?,?,?,?)";
         }
@@ -359,10 +394,8 @@ public class EmployeeServlet extends HttpServlet {
                 ps.setInt(6, id);
 
                 if (ps.executeUpdate() == 0) {
-                    request.setAttribute(
-                        "error", "Employee record not found."
-                    );
-
+                    request.setAttribute("error",
+                            "Employee record not found.");
                     listEmployees(request, response);
                     return;
                 }
@@ -370,17 +403,12 @@ public class EmployeeServlet extends HttpServlet {
                 ps.executeUpdate();
             }
 
-            response.sendRedirect(
-                request.getContextPath() + "/employees"
-            );
+            response.sendRedirect(request.getContextPath() + "/employees");
 
         } catch (SQLException e) {
             log("Unable to save employee", e);
-
-            request.setAttribute(
-                "error",
-                "Unable to save employee. Please check the database."
-            );
+            request.setAttribute("error",
+                    "Unable to save employee. Please check the database.");
 
             request.getRequestDispatcher("/employee-form.jsp")
                    .forward(request, response);
@@ -395,20 +423,15 @@ public class EmployeeServlet extends HttpServlet {
         String idValue = request.getParameter("employeeId");
 
         try {
-            if (idValue == null
-                    || !idValue.matches("[1-9][0-9]*")) {
-
-                response.sendRedirect(
-                    request.getContextPath()
-                    + "/employees?error=invalidId"
-                );
+            if (idValue == null || !idValue.matches("[1-9][0-9]*")) {
+                response.sendRedirect(request.getContextPath()
+                        + "/employees?error=invalidId");
                 return;
             }
 
             int employeeId = Integer.parseInt(idValue);
 
-            String sql =
-                "DELETE FROM employees WHERE employee_id = ?";
+            String sql = "DELETE FROM employees WHERE employee_id = ?";
 
             try (Connection con = DBConnection.getConnection();
                  PreparedStatement ps = con.prepareStatement(sql)) {
@@ -418,27 +441,21 @@ public class EmployeeServlet extends HttpServlet {
                 int rowsDeleted = ps.executeUpdate();
 
                 if (rowsDeleted > 0) {
-                    response.sendRedirect(
-                        request.getContextPath()
-                        + "/employees?deleted=1"
-                    );
+                    response.sendRedirect(request.getContextPath()
+                            + "/employees?deleted=1");
                 } else {
-                    response.sendRedirect(
-                        request.getContextPath()
-                        + "/employees?error=notFound"
-                    );
+                    response.sendRedirect(request.getContextPath()
+                            + "/employees?error=notFound");
                 }
             }
 
         } catch (NumberFormatException e) {
-            response.sendRedirect(
-                request.getContextPath() + "/employees?error=invalidId"
-            );
+            response.sendRedirect(request.getContextPath()
+                    + "/employees?error=invalidId");
 
         } catch (SQLException e) {
             throw new IOException(
-                "Unable to delete employee from database.", e
-            );
+                    "Unable to delete employee from database.", e);
         }
     }
 }
